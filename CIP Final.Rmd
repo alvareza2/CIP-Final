@@ -1,0 +1,209 @@
+---
+title: "CIP R Appendix"
+author: "Alyssa Alvarez, Ethan Bledsoe, and Rhea Henderson"
+date: "2024-11-05"
+---
+
+## load libraries and clean data
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(iNEXT)
+library(RColorBrewer)     
+library(vegan)
+species <- read.csv("CIP Data Entry - Sheet1.csv")
+
+species <- species %>% 
+  select(species, family, subfamily, body_length, wingspan,
+         location, guilds, color.index) %>% 
+  mutate(species = na_if(species, "")) %>% 
+  na.omit()
+```
+
+## species relative abundance data
+```{r}
+# cloud forest
+speciescf <- species %>%
+  subset(location == "cf")
+
+species_ra_cf <- speciescf %>%
+  select(species) %>%
+  group_by(species) %>%
+  mutate(individuals = n()) %>%
+  ungroup() %>%
+  distinct() %>%
+  mutate(total = sum(n()), relative_abundance = individuals / total) %>%
+  filter(relative_abundance > 0)
+
+# amazon
+speciesar <- species %>%
+  subset(location == "ar")
+
+species_ra_ar <- speciesar %>%
+  select(species) %>%
+  group_by(species) %>%
+  mutate(individuals = n()) %>%
+  ungroup() %>% distinct() %>%
+  mutate(total = sum(n()), relative_abundance = individuals / total) %>%
+  filter(relative_abundance > 0)
+```
+
+# relative species abundance graphs for each location
+```{r}
+#cloud forest
+ggplot(species_ra_cf, aes(x = reorder(species, -relative_abundance),
+                          y = relative_abundance, fill = relative_abundance)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  labs(x = "Butterfly Species", 
+       y = "Relative Abundance", 
+       title = "Butterfly Species Relative Abundance in the Cloud Forest") +
+  theme(legend.position = "none", 
+        axis.text.x = element_text(angle = 60, vjust = 1, hjust=1), 
+        plot.title = element_text(hjust = 0.5, face="bold"))
+
+#amazon
+ggplot(species_ra_ar, aes(x = reorder(species, -relative_abundance),
+                          y = relative_abundance, fill = relative_abundance)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  labs(x = "Butterfly Species", 
+       y = "Relative Abundance", 
+       title = "Butterfly Species Relative Abundance in the Amazon") +
+  theme(legend.position = "none", 
+        axis.text.x = element_text(angle = 90, vjust = 1, hjust=1, size = 7), 
+        plot.title = element_text(hjust = 0.5, face="bold"))
+```
+
+## species data for relative abundance
+```{r}
+# cloud forest
+species_rag_cf <- speciescf %>%
+  select(guilds) %>%
+  group_by(guilds) %>%
+  mutate(individuals = n()) %>%
+  ungroup() %>%
+  distinct() %>%
+  mutate(total = sum(individuals), relative_abundance = individuals / total) %>%
+  filter(relative_abundance > 0)
+
+# amazon
+species_rag_ar <- speciesar %>%
+  select(guilds) %>%
+  group_by(guilds) %>%
+  mutate(individuals = n()) %>%
+  ungroup() %>%
+  distinct() %>%
+  mutate(total = sum(individuals), relative_abundance = individuals / total) %>%
+  filter(relative_abundance > 0)
+```
+
+## relative species abundance graphs for each location
+```{r}
+# cloud forest
+ggplot(species_rag_cf, aes(x = reorder(guilds, -relative_abundance),
+                           y = relative_abundance, fill = guilds)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Butterfly Guild", 
+       y = "Relative Abundance", 
+       title = "Butterfly Guild Relative Abundance in the Cloud Forest") +
+  theme_bw() +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, face="bold")) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  scale_fill_manual(
+    values = c("#D1F0B1", "#8C8A93", "#92B4A7", "#81667A", "#AE98A8"))
+
+# amazon
+ggplot(species_rag_ar, aes(x = reorder(guilds, -relative_abundance), 
+                           y = relative_abundance, fill = guilds)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Butterfly Guild", 
+       y = "Relative Abundance", 
+       title = "Butterfly Guild Relative Abundance in the Amazon") +
+  theme_bw() +
+  theme(legend.position = "none", 
+        plot.title = element_text(hjust = 0.5, face="bold")) +
+  scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+  scale_fill_manual(
+    values = c("#D1F0B1", "#B6CB9E", "#8C8A93", "#92B4A7", "#81667A", "#AE98A8"))
+```
+
+# diversity indices 
+```{r}
+# cleaning data
+species_index <- species %>%
+  group_by(location, species) %>%
+  summarize(individuals = n(), .groups = 'drop') %>% 
+  pivot_wider(names_from = species, values_from = individuals, values_fill = 0) %>%
+  select(-location)
+
+# diversity index
+vegan::diversity(species_index , "shannon")
+vegan::diversity(species_index , "simpson")
+vegdist(species_index, method = "bray")
+vegdist(species_index, method = "jaccard")
+vegdist(species_index, method = "horn")
+```
+
+## wingspan and body length analysis
+```{r}
+# wingspan
+ggplot(species, aes(x = location, y = wingspan, fill = location)) +
+  geom_boxplot() +
+  labs(x = "Location", 
+       y = "Wingspan (mm)", 
+       title = "Butterfly Wingspan by Location", ) +
+  theme_bw() +
+  theme(legend.position="none") +
+  scale_fill_manual(values = c("#EB8258","#6DD3CE")) +
+  scale_x_discrete(labels = c("Amazon", "Cloud Forest")) +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+
+# body length
+ggplot(species, aes(x = location, y = body_length, fill = location)) +
+  geom_boxplot() +
+  labs(x = "Location", 
+       y = "Body Length (mm)", 
+       title = "Butterfly Body Length by Location") +
+  theme_bw() +
+  theme(legend.position="none") +
+  scale_fill_manual(values = c("#EB8258","#6DD3CE")) +
+  scale_x_discrete(labels = c("Amazon", "Cloud Forest")) +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+
+# scatterplot for general visualization
+ggplot(species, aes(x = body_length, y = wingspan, color = location)) +
+  geom_point() +
+  labs(x = "Body Length (mm)", 
+       y = "Wingspan (mm)", 
+       title = "Butterfly Species Measurement Comparison by Location", 
+       legend = "Location") +
+  theme_bw() +
+  scale_color_manual(name = "Location", 
+                     labels = c("Amazon", "Cloud Forest"), 
+                     values = c("#EB8258","#6DD3CE")) +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+
+# t-tests
+t.test(wingspan ~ location, data = species)
+t.test(body_length ~ location, data = species)
+```
+
+## color analysis
+```{r}
+# stacked bar plot
+ggplot(species, aes(x = location, fill = color.index)) +
+  geom_bar(position="fill") +
+  labs(x = "Location", 
+       y = "Proportion of Butterflies", 
+       title = "Proportion of Colorful Butterflies for Each Location") +
+  theme_bw() +
+  scale_fill_manual(values = c("#EDCF8E","#C28CAE"), name = "Color Index") +
+  scale_x_discrete(labels = c("Amazon", "Cloud Forest")) +
+  theme(plot.title = element_text(hjust = 0.5, face="bold"))
+
+# chi-square test
+contingency_table <- table(species$color.index, species$location)
+chisq.test(contingency_table)
+```
